@@ -8,6 +8,9 @@ struct ExercisePickerView: View {
     @Environment(\.dismiss) private var dismiss
 
     let task: CycleTask
+    /// Set when the picker was opened from search, so the row the user was
+    /// looking for stands out among the LRU-sorted list.
+    var highlighted: Exercise? = nil
     /// Called when the user confirms a value; the caller completes the tile
     /// after the sheet is dismissed.
     let onLog: (Exercise, Double?) -> Void
@@ -32,23 +35,30 @@ struct ExercisePickerView: View {
                 } else {
                     Section {
                         ForEach(Array(sortedExercises.enumerated()), id: \.element.id) { index, exercise in
-                            if exercise.tracking == .untracked {
-                                // Nothing to enter — one tap logs it.
-                                Button {
-                                    onLog(exercise, nil)
-                                } label: {
-                                    ExerciseRow(exercise: exercise, isUpNext: index == 0)
-                                }
-                                .buttonStyle(.plain)
-                            } else {
-                                NavigationLink {
-                                    LogValueView(exercise: exercise) { value in
-                                        onLog(exercise, value)
+                            Group {
+                                if exercise.tracking == .untracked {
+                                    // Nothing to enter — one tap logs it.
+                                    Button {
+                                        onLog(exercise, nil)
+                                    } label: {
+                                        ExerciseRow(exercise: exercise, isUpNext: index == 0)
                                     }
-                                } label: {
-                                    ExerciseRow(exercise: exercise, isUpNext: index == 0)
+                                    .buttonStyle(.plain)
+                                } else {
+                                    NavigationLink {
+                                        LogValueView(exercise: exercise) { value in
+                                            onLog(exercise, value)
+                                        }
+                                    } label: {
+                                        ExerciseRow(exercise: exercise, isUpNext: index == 0)
+                                    }
                                 }
                             }
+                            .listRowBackground(
+                                exercise.persistentModelID == highlighted?.persistentModelID
+                                    ? Color.accentColor.opacity(0.14)
+                                    : nil
+                            )
                         }
                     } footer: {
                         Text("Sorted by least recently performed — pick the top one to keep your rotation balanced.")

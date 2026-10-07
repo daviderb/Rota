@@ -29,6 +29,7 @@ Built with [Claude Code](https://claude.com/claude-code).
 ## Features
 
 - **Counting tiles** — a category needed 12× per cycle is one tile with a `12` badge that counts down, not twelve identical tiles.
+- **Search** — find any item across all programs and see which tile it lives behind, how many of that tile are left, or that it's already done this cycle. Tapping a result opens its tile with the item highlighted, so you can log it without hunting.
 - **Per-item tracking** — each item records whatever actually makes sense for it: weight (kg/lb), time (s/min), reps, distance (m/km/mi), or **nothing at all**. Untracked items log in a single tap, which is what I wanted for stretches. Units and the ± quick-adjust step are configurable per item.
 - **Progressive overload** — the previous value sits beside each item in the picker, and the logging screen pre-fills it so you only adjust the delta.
 - **Full history** — every log is kept: per-item history with a progress chart, plus a per-program cycle log showing each cycle's contents and how long it took.

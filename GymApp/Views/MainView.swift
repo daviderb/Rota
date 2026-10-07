@@ -8,12 +8,25 @@ struct MainView: View {
     @Environment(\.modelContext) private var context
     @Query(sort: \Program.sortOrder) private var programs: [Program]
     @Query private var allTasks: [CycleTask]
+    @Query private var allExercises: [Exercise]
 
     @AppStorage("selectedProgramName") private var selectedProgramName = ""
     @State private var selectedTask: CycleTask?
     @State private var pendingCompletion: (task: CycleTask, exercise: Exercise, weight: Double?)?
     @State private var showSettings = false
     @State private var showCelebration = false
+    @State private var searchText = ""
+    @State private var isSearchPresented = false
+    /// The exercise picked from search, highlighted when its tile's picker opens.
+    @State private var highlightedExercise: Exercise?
+
+    private var isShowingSearch: Bool {
+        !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private var searchResults: [ExerciseSearchResult] {
+        ExerciseSearch.results(for: searchText, exercises: allExercises, tasks: allTasks)
+    }
 
     private var selectedProgram: Program? {
         programs.first { $0.name == selectedProgramName } ?? programs.first
@@ -45,7 +58,14 @@ struct MainView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                if programs.isEmpty {
+                if isShowingSearch {
+                    ExerciseSearchResultsView(
+                        query: searchText,
+                        results: searchResults,
+                        showsProgram: programs.count > 1,
+                        onSelect: open
+                    )
+                } else if programs.isEmpty {
                     ContentUnavailableView {
                         Label("No Programs Yet", systemImage: "square.grid.2x2")
                     } description: {
@@ -102,21 +122,31 @@ struct MainView: View {
                     }
                 }
             }
+            .searchable(
+                text: $searchText,
+                isPresented: $isSearchPresented,
+                placement: .navigationBarDrawer(displayMode: .always),
+                prompt: "Find an exercise"
+            )
             .safeAreaInset(edge: .top) {
-                if programs.count > 1 {
+                // Search spans every program, so the switcher steps aside.
+                if programs.count > 1 && !isShowingSearch {
                     ProgramPillBar(programs: programs, selectedName: $selectedProgramName)
                 }
             }
             .safeAreaInset(edge: .bottom) {
-                if !tiles.isEmpty {
+                if !tiles.isEmpty && !isShowingSearch {
                     Text("\(tiles.count) exercise\(tiles.count == 1 ? "" : "s") to go")
                         .font(.footnote.weight(.medium))
                         .foregroundStyle(.secondary)
                         .padding(.bottom, 4)
                 }
             }
-            .sheet(item: $selectedTask, onDismiss: processPendingCompletion) { task in
-                ExercisePickerView(task: task) { exercise, weight in
+            .sheet(item: $selectedTask, onDismiss: {
+                highlightedExercise = nil
+                processPendingCompletion()
+            }) { task in
+                ExercisePickerView(task: task, highlighted: highlightedExercise) { exercise, weight in
                     pendingCompletion = (task, exercise, weight)
                     selectedTask = nil
                 }
@@ -134,12 +164,27 @@ struct MainView: View {
         CycleEngine.repopulateAllIfEmpty(in: context)
     }
 
+    /// Opens the tile a search result lives behind, switching to its program
+    /// so the grid underneath matches once the search is dismissed.
+    private func open(_ result: ExerciseSearchResult) {
+        guard let task = result.nextTask else { return }
+        if let programName = result.program?.name {
+            selectedProgramName = programName
+        }
+        highlightedExercise = result.exercise
+        selectedTask = task
+    }
+
     /// Runs after the picker sheet is fully dismissed, so the model deletion
     /// never races the sheet's own rendering.
     private func processPendingCompletion() {
         guard let completion = pendingCompletion else { return }
         pendingCompletion = nil
         let program = completion.task.program ?? completion.task.category?.program
+
+        // Back to the grid, where the tile that was just counted down is visible.
+        searchText = ""
+        isSearchPresented = false
 
         withAnimation(.spring(duration: 0.4)) {
             CycleEngine.complete(
